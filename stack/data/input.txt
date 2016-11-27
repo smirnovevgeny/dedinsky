@@ -1,0 +1,12 @@
+push 10
+push 20
+pop ax
+add
+push 5
+mul
+push 6
+push 1
+add
+push 10
+mul
+sub
