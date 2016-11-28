@@ -4,6 +4,7 @@
 
 #include <string.h>
 #include "stack.c"
+#include <math.h>
 
 char * INPUT_FILE = "data/input.txt";
 int LONGEST_COMMAND = 4;
@@ -24,17 +25,19 @@ const char * BX = "bx";
 const char * CX = "cx";
 const char * DX = "dx";
 
+const char * WRONG_ARG_NUMBER = "Incorrect arguments number!";
+
 enum processorCommands {
     pop = 0x30,
-    pushValue = 0x10,
-    pushRegister = 0x20,
+    pushValue = 0x20,
+    pushRegister = 0x10,
     add = 0x80,
     sub = 0x90,
     mul = 0xA0,
     division = 0xB0,
-    sin = 0x40,
-    cos = 0x50,
-    sqrt = 0x60
+    Sin = 0x40,
+    Cos = 0x50,
+    Sqrt = 0x60
 };
 
 enum registerTypes {
@@ -80,34 +83,216 @@ void CPU_ctor(struct CPU_t * this, int bufferSize, int stackSize) {
 
 void interpret(struct Buffer_t *buffer, char *command);
 
-void CPU_pushRegister(struct CPU_t *cpu, char *reg);
+void CPU_pushRegister(struct CPU_t *cpu, int reg);
 
-void CPU_popRegister(struct CPU_t *cpu, char *reg);
+void CPU_popRegister(struct CPU_t *cpu, int reg);
 
 int registerCode(char *reg);
 
-void Buffer_read(struct Buffer_t *buffer);
+void CPU_assemble(struct Buffer_t *buffer);
+
+void CPU_evaluate(struct CPU_t *cpu);
+
+void CPU_disassemble(struct CPU_t *cpu);
+
+const char *Reg_disassemble(int reg);
 
 int main() {
     struct CPU_t cpu;
     CPU_ctor(&cpu, 100, 100);
 
-    Buffer_read(&cpu.buffer);
+    CPU_assemble(&cpu.buffer);
 
-    for (int i = 0; i < cpu.buffer.size; i++) {
-        int current = cpu.buffer.data[i];
+    CPU_evaluate(&cpu);
 
-    }
+    CPU_disassemble(&cpu);
 
 
-    for (int i = 0; i < cpu.buffer.currentPosition; i++) {
-        printf("%lg\n", cpu.buffer.data[i]);
-    }
+    printf("%lg", Stack_pop(&cpu.stack));
+//    for (int i = 0; i < cpu.buffer.currentPosition; i++) {
+//        printf("%lg\n", cpu.buffer.data[i]);
+//    }
 
     return 0;
 }
 
-void Buffer_read(struct Buffer_t *buffer) {
+void CPU_disassemble(struct CPU_t * cpu) {
+    int i = 0;
+    int reg = 0;
+    FILE * outputFile = fopen("output.txt", "w");
+
+    while (i < cpu -> buffer.currentPosition) {
+
+        FILE *output = fopen("output.txt", "w");
+        int current = (int) cpu -> buffer.data[i];
+        int args = (current & 0b11000000) >> 6;
+        int command_number = (current & 0b00110000) >> 4;
+
+        switch (args) {
+            case 0:
+                switch (command_number) {
+                    case 1:
+                        reg = current & 0b00001111;
+                        fprintf(outputFile, "%s %s\n", PUSH, Reg_disassemble(reg));
+                        CPU_pushRegister(cpu, reg);
+                        break;
+                    case 3:
+                        reg = current & 0b00001111;
+                        fprintf(outputFile, "%s %s\n", POP, Reg_disassemble(reg));
+                        break;
+                    case 2:
+                        i++;
+                        fprintf(outputFile, "%s %lg\n", PUSH, cpu -> buffer.data[i]);
+                        break;
+                    default:
+                        assert(WRONG_COMMAND);
+                }
+                break;
+            case 1:
+                switch(command_number) {
+                    case 0:
+                        fprintf(outputFile, "%s\n", SIN);
+                        break;
+                    case 1:
+                        fprintf(outputFile, "%s\n", COS);
+                        break;
+                    case 2:
+                        fprintf(outputFile, "%s\n", SQRT);
+                        break;
+                    default:
+                        assert(WRONG_COMMAND);
+                }
+                break;
+            case 2:
+                switch(command_number) {
+                    case 0:
+                        fprintf(outputFile, "%s\n", ADD);
+                        break;
+
+                    case 1:
+                        fprintf(outputFile, "%s\n", SUB);
+                        break;
+
+                    case 2:
+                        fprintf(outputFile, "%s\n", MUL);
+                        break;
+
+                    case 3:
+                        fprintf(outputFile, "%s\n", DIV);
+                        break;
+
+                    default:
+                        assert(WRONG_COMMAND);
+                }
+                break;
+            default:
+                assert(WRONG_ARG_NUMBER);
+
+        }
+
+        i++;
+    }
+    fclose(outputFile);
+
+}
+
+const char * Reg_disassemble(int reg) {
+    if (reg == ax) {
+        return AX;
+    }
+    if (reg == bx) {
+        return BX;
+    }
+    if (reg == cx) {
+        return CX;
+    }
+    if (reg == dx) {
+        return DX;
+    }
+    assert(WRONG_COMMAND);
+}
+
+void CPU_evaluate(struct CPU_t * cpu) {
+    int i = 0;
+    int reg = 0;
+    double top = 0, top2 = 0, result = 0;
+
+    while (i < cpu -> buffer.currentPosition) {
+        int current = (int) cpu -> buffer.data[i];
+        int args = (current & 0b11000000) >> 6;
+        int command_number = (current & 0b00110000) >> 4;
+
+        switch (args) {
+            case 0:
+                switch (command_number) {
+                    case 1:
+                        reg = current & 0b00001111;
+                        CPU_pushRegister(cpu, reg);
+                        break;
+                    case 3:
+                        reg = current & 0b00001111;
+                        CPU_popRegister(cpu, reg);
+                        break;
+                    case 2:
+                        i++;
+                        Stack_push(&cpu -> stack, cpu -> buffer.data[i]);
+                        break;
+                    default:
+                        assert(WRONG_COMMAND);
+                }
+                break;
+            case 1:
+                top = Stack_pop(&cpu -> stack);
+                switch(command_number) {
+                    case 0:
+                         result = sin(top);
+                        break;
+                    case 1:
+                        result =  cos(top);
+                        break;
+                    case 2:
+                        result =  sqrt(top);
+                        break;
+                    default:
+                        assert(WRONG_COMMAND);
+                }
+                Stack_push(&cpu -> stack, result);
+                break;
+            case 2:
+                top = Stack_pop(&cpu -> stack);
+                top2 = Stack_pop(&cpu -> stack);
+                switch(command_number) {
+                    case 0:
+                        result =  top2 + top;
+                        break;
+
+                    case 1:
+                        result =  top2 - top;
+                        break;
+
+                    case 2:
+                        result =  top2 * top;
+                        break;
+
+                    case 3:
+                        result = top2 / top;
+                        break;
+
+                    default:
+                        assert(WRONG_COMMAND);
+                }
+                Stack_push(&cpu -> stack, result);
+                break;
+            default:
+                assert(WRONG_ARG_NUMBER);
+
+        }
+
+        i++;
+    }
+}
+
+void CPU_assemble(struct Buffer_t *buffer) {
 
     FILE *input = fopen(INPUT_FILE, "r");
     char *command = malloc(sizeof(char) * LONGEST_COMMAND);
@@ -136,6 +321,7 @@ void Buffer_read(struct Buffer_t *buffer) {
         interpret(buffer, command);
     }
 
+    fclose(input);
 
 }
 
@@ -156,33 +342,33 @@ int registerCode(char *reg) {
 
 }
 
-void CPU_popRegister(struct CPU_t *cpu, char *reg) {
-    if (!strcmp(reg, AX)) {
+void CPU_pushRegister(struct CPU_t *cpu, int reg) {
+    if (reg == ax) {
         cpu -> ax = Stack_pop(&cpu -> stack);
     }
-    if (!strcmp(reg, BX)) {
+    if (reg == bx) {
         cpu -> bx = Stack_pop(&cpu -> stack);
     }
-    if (!strcmp(reg, CX)) {
+    if (reg == cx) {
         cpu -> cx = Stack_pop(&cpu -> stack);
     }
-    if (!strcmp(reg, DX)) {
+    if (reg == dx) {
         cpu -> dx = Stack_pop(&cpu -> stack);
     }
     assert(WRONG_COMMAND);
 }
 
-void CPU_pushRegister(struct CPU_t * cpu, char *reg) {
-    if (!strcmp(reg, AX)) {
+void CPU_popRegister(struct CPU_t * cpu, int reg) {
+    if (reg == ax) {
         Stack_push(&cpu -> stack, cpu -> ax);
     }
-    if (!strcmp(reg, BX)) {
+    if (reg == bx) {
         Stack_push(&cpu -> stack, cpu -> bx);
     }
-    if (!strcmp(reg, CX)) {
+    if (reg == cx) {
         Stack_push(&cpu -> stack, cpu -> cx);
     }
-    if (!strcmp(reg, DX)) {
+    if (reg == dx) {
         Stack_push(&cpu -> stack, cpu -> dx);
     }
     assert(WRONG_COMMAND);
@@ -208,15 +394,15 @@ void interpret(struct Buffer_t *buffer, char *command) {
         return;
     }
     if (!strcmp(command, COS)) {
-        Buffer_push(buffer, cos);
+        Buffer_push(buffer, Cos);
         return;
     }
     if (!strcmp(command, SIN)) {
-        Buffer_push(buffer, sin);
+        Buffer_push(buffer, Sin);
         return;
     }
     if (!strcmp(command, SQRT)) {
-        Buffer_push(buffer, sqrt);
+        Buffer_push(buffer, Sqrt);
         return;
     }
     assert(WRONG_COMMAND);

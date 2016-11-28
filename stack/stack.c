@@ -45,13 +45,13 @@ void Stack_dtor(struct Stack_t * this) {
 
 void Stack_push(struct Stack_t * this, double value) {
     ASSERT_OK(Stack);
-    this -> count++;
     if (this -> count > this -> size) {
         if (realloc(this,  2 * this -> size * sizeof(double))) {
             this -> size *= 2;
         }
     }
     this -> data[this -> count] = value;
+    this -> count++;
     ASSERT_OK(Stack);
 }
 
@@ -66,7 +66,7 @@ void Stack_dump(struct Stack_t * this) {
     FILE *dumpFile = fopen(DUMP_PATH, "w+");
 
     fprintf(dumpFile, "Stack [%p] {\n", this);
-    printf("\tdata[%d] = [%p] {\n", this -> size, this -> data);
+    fprintf(dumpFile, "\tdata[%d] = [%p] {\n", this -> size, this -> data);
 
     for (int i = 0; i < this -> size; i++) {
         fprintf(dumpFile, "\t\t");
