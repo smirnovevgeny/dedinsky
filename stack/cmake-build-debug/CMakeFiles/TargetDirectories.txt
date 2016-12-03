@@ -1,0 +1,6 @@
+/Users/evgeny/Programming/ClionProjects/dedinsky/stack/cmake-build-debug/CMakeFiles/edit_cache.dir
+/Users/evgeny/Programming/ClionProjects/dedinsky/stack/cmake-build-debug/CMakeFiles/processor.dir
+/Users/evgeny/Programming/ClionProjects/dedinsky/stack/cmake-build-debug/CMakeFiles/rebuild_cache.dir
+/Users/evgeny/Programming/ClionProjects/dedinsky/stack/cmake-build-debug/CMakeFiles/experiment.dir
+/Users/evgeny/Programming/ClionProjects/dedinsky/stack/cmake-build-debug/CMakeFiles/main.dir
+/Users/evgeny/Programming/ClionProjects/dedinsky/stack/cmake-build-debug/CMakeFiles/stack.dir

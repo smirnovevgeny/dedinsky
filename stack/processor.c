@@ -19,6 +19,10 @@ const char * DIV = "div";
 const char * COS = "cos";
 const char * SIN = "sin";
 const char * SQRT = "sqrt";
+const char * JE = "je";
+const char * JNE = "jne";
+const char * JA = "ja";
+const char * JMP = "jmp";
 
 const char * AX = "ax";
 const char * BX = "bx";
@@ -37,7 +41,11 @@ enum processorCommands {
     division = 0xB0,
     Sin = 0x40,
     Cos = 0x50,
-    Sqrt = 0x60
+    Sqrt = 0x60,
+    je = 0xF0,
+    jne = 0xE0,
+    ja = 0xD0,
+    jmp = 0xC0
 };
 
 enum registerTypes {
@@ -97,6 +105,8 @@ void CPU_disassemble(struct CPU_t *cpu);
 
 const char *Reg_disassemble(int reg);
 
+bool isJump(char *command, struct Buffer_t *buffer);
+
 int main() {
     struct CPU_t cpu;
     CPU_ctor(&cpu, 100, 100);
@@ -125,10 +135,10 @@ void CPU_disassemble(struct CPU_t * cpu) {
 
         FILE *output = fopen("output.txt", "w");
         int current = (int) cpu -> buffer.data[i];
-        int args = (current & 0b11000000) >> 6;
+        int args_n = (current & 0b11000000) >> 6;
         int command_number = (current & 0b00110000) >> 4;
 
-        switch (args) {
+        switch (args_n) {
             case 0:
                 switch (command_number) {
                     case 1:
@@ -217,77 +227,124 @@ void CPU_evaluate(struct CPU_t * cpu) {
     int reg = 0;
     double top = 0, top2 = 0, result = 0;
 
+    int jump_remain = 0;
+
     while (i < cpu -> buffer.currentPosition) {
         int current = (int) cpu -> buffer.data[i];
-        int args = (current & 0b11000000) >> 6;
+        int args_n = (current & 0b11000000) >> 6;
         int command_number = (current & 0b00110000) >> 4;
 
-        switch (args) {
-            case 0:
-                switch (command_number) {
-                    case 1:
-                        reg = current & 0b00001111;
-                        CPU_pushRegister(cpu, reg);
-                        break;
-                    case 3:
-                        reg = current & 0b00001111;
-                        CPU_popRegister(cpu, reg);
-                        break;
-                    case 2:
-                        i++;
-                        Stack_push(&cpu -> stack, cpu -> buffer.data[i]);
-                        break;
-                    default:
-                        assert(WRONG_COMMAND);
-                }
-                break;
-            case 1:
-                top = Stack_pop(&cpu -> stack);
-                switch(command_number) {
-                    case 0:
-                         result = sin(top);
-                        break;
-                    case 1:
-                        result =  cos(top);
-                        break;
-                    case 2:
-                        result =  sqrt(top);
-                        break;
-                    default:
-                        assert(WRONG_COMMAND);
-                }
-                Stack_push(&cpu -> stack, result);
-                break;
-            case 2:
-                top = Stack_pop(&cpu -> stack);
-                top2 = Stack_pop(&cpu -> stack);
-                switch(command_number) {
-                    case 0:
-                        result =  top2 + top;
-                        break;
+        if (jump_remain == 0) {
 
-                    case 1:
-                        result =  top2 - top;
-                        break;
+            switch (args_n) {
+                case 0:
+                    switch (command_number) {
+                        case 1:
+                            reg = current & 0b00001111;
+                            CPU_pushRegister(cpu, reg);
+                            break;
+                        case 3:
+                            reg = current & 0b00001111;
+                            CPU_popRegister(cpu, reg);
+                            break;
+                        case 2:
+                            i++;
+                            Stack_push(&cpu->stack, cpu->buffer.data[i]);
+                            break;
+                        default:
+                            assert(WRONG_COMMAND);
+                    }
+                    break;
+                case 1:
+                    top = Stack_pop(&cpu->stack);
+                    switch (command_number) {
+                        case 0:
+                            result = sin(top);
+                            break;
+                        case 1:
+                            result = cos(top);
+                            break;
+                        case 2:
+                            result = sqrt(top);
+                            break;
+                        default:
+                            assert(WRONG_COMMAND);
+                    }
+                    Stack_push(&cpu->stack, result);
+                    break;
 
-                    case 2:
-                        result =  top2 * top;
-                        break;
+                case 2:
+                    top = Stack_pop(&cpu->stack);
+                    top2 = Stack_pop(&cpu->stack);
+                    switch (command_number) {
+                        case 0:
+                            result = top2 + top;
+                            break;
 
-                    case 3:
-                        result = top2 / top;
-                        break;
+                        case 1:
+                            result = top2 - top;
+                            break;
 
-                    default:
-                        assert(WRONG_COMMAND);
-                }
-                Stack_push(&cpu -> stack, result);
-                break;
-            default:
-                assert(WRONG_ARG_NUMBER);
+                        case 2:
+                            result = top2 * top;
+                            break;
 
+                        case 3:
+                            result = top2 / top;
+                            break;
+
+                        default:
+                            assert(WRONG_COMMAND);
+                    }
+                    Stack_push(&cpu->stack, result);
+                    break;
+
+                case 3:
+                    if (command_number > 0) {
+                        top = Stack_pop(&cpu->stack);
+                        top2 = Stack_pop(&cpu->stack);
+                    }
+                    bool make_jump = false;
+                    switch (command_number) {
+                        case 0:
+                            make_jump = true;
+                            break;
+                        case 1:
+                            if (top2 > top) {
+                                make_jump = true;
+                            }
+                            break;
+                        case 2:
+                            if (top2 != top) {
+                                make_jump = true;
+                            }
+                            break;
+                        case 3:
+                            if (top2 == top) {
+                                make_jump = true;
+                            }
+                            break;
+                        default:
+                            assert(WRONG_COMMAND);
+                    }
+
+                    i++;
+                    if (make_jump) {
+                        jump_remain = (int) cpu->buffer.data[i];
+                    }
+
+                default:
+                    assert(WRONG_ARG_NUMBER);
+
+            }
+        } else {
+            if (args_n < 3) {
+                i += args_n;
+            } else {
+                i += 1;
+            }
+            jump_remain--;
         }
-
         i++;
     }
 }
@@ -318,11 +375,39 @@ void CPU_assemble(struct Buffer_t *buffer) {
             Buffer_push(buffer, pop + registerCode(reg));
             continue;
         }
+        if (isJump(command, buffer)) {
+            read = fscanf(input, "%lg", &value);
+            Buffer_push(buffer, value);
+        }
         interpret(buffer, command);
+
     }
 
     fclose(input);
 
+}
+
+bool isJump(char * command, struct Buffer_t *buffer) {
+    if (!strcmp(command, JMP)) {
+        Buffer_push(buffer, jmp);
+        return true;
+    }
+
+    if (!strcmp(command, JA)) {
+        Buffer_push(buffer, ja);
+        return true;
+    }
+
+    if (!strcmp(command, JE)) {
+        Buffer_push(buffer, je);
+        return true;
+    }
+
+    if (!strcmp(command, JNE)) {
+        Buffer_push(buffer, jne);
+        return true;
+    }
+    return false;
 }
 
 int registerCode(char *reg) {
