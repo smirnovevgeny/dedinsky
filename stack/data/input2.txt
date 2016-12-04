@@ -1,0 +1,54 @@
+push 3
+pop ax
+push -4
+pop bx
+push 1
+pop cx
+push bx
+push bx
+mul
+push ax
+push cx
+mul
+push 4
+mul
+sub
+pop dx
+push bx
+push -1
+mul
+push dx
+push 0
+ja 26
+je 46
+pop cx
+out
+end
+pop cx
+sqrt
+add
+push 2
+div
+push ax
+div
+out
+push bx
+push -1
+mul
+push dx
+sqrt
+sub
+push 2
+div
+push ax
+div
+out
+end
+pop cx
+pop cx
+push 2
+div
+push ax
+div
+out
+end

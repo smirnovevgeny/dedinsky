@@ -6,7 +6,8 @@
 #include "stack.c"
 #include <math.h>
 
-char * INPUT_FILE = "data/input.txt";
+char * INPUT_FILE = "data/input2.txt";
+char * OUTPUT_FILE = "data/output.txt";
 int LONGEST_COMMAND = 4;
 char * WRONG_COMMAND = "Wrong command!";
 
@@ -23,6 +24,8 @@ const char * JE = "je";
 const char * JNE = "jne";
 const char * JA = "ja";
 const char * JMP = "jmp";
+const char * OUT = "out";
+const char * END = "end";
 
 const char * AX = "ax";
 const char * BX = "bx";
@@ -35,6 +38,7 @@ enum processorCommands {
     pop = 0x30,
     pushValue = 0x20,
     pushRegister = 0x10,
+    end = 0x00,
     add = 0x80,
     sub = 0x90,
     mul = 0xA0,
@@ -42,6 +46,7 @@ enum processorCommands {
     Sin = 0x40,
     Cos = 0x50,
     Sqrt = 0x60,
+    out = 0x70,
     je = 0xF0,
     jne = 0xE0,
     ja = 0xD0,
@@ -118,7 +123,7 @@ int main() {
     CPU_disassemble(&cpu);
 
 
-    printf("%lg", Stack_pop(&cpu.stack));
+//    printf("%lg", Stack_pop(&cpu.stack));
 //    for (int i = 0; i < cpu.buffer.currentPosition; i++) {
 //        printf("%lg\n", cpu.buffer.data[i]);
 //    }
@@ -129,11 +134,10 @@ int main() {
 void CPU_disassemble(struct CPU_t * cpu) {
     int i = 0;
     int reg = 0;
-    FILE * outputFile = fopen("output.txt", "w");
+    FILE * outputFile = fopen(OUTPUT_FILE, "wb");
 
     while (i < cpu -> buffer.currentPosition) {
 
-        FILE *output = fopen("output.txt", "w");
         int current = (int) cpu -> buffer.data[i];
         int args_n = (current & 0b11000000) >> 6;
         int command_number = (current & 0b00110000) >> 4;
@@ -141,10 +145,12 @@ void CPU_disassemble(struct CPU_t * cpu) {
         switch (args_n) {
             case 0:
                 switch (command_number) {
+                    case 0:
+                        fprintf(outputFile, "%s\n", END);
+                        break;
                     case 1:
                         reg = current & 0b00001111;
                         fprintf(outputFile, "%s %s\n", PUSH, Reg_disassemble(reg));
-                        CPU_pushRegister(cpu, reg);
                         break;
                     case 3:
                         reg = current & 0b00001111;
@@ -169,6 +175,8 @@ void CPU_disassemble(struct CPU_t * cpu) {
                     case 2:
                         fprintf(outputFile, "%s\n", SQRT);
                         break;
+                    case 3:
+                        fprintf(outputFile, "%s\n", OUT);
                     default:
                         assert(WRONG_COMMAND);
                 }
@@ -191,6 +199,26 @@ void CPU_disassemble(struct CPU_t * cpu) {
                         fprintf(outputFile, "%s\n", DIV);
                         break;
 
+                    default:
+                        assert(WRONG_COMMAND);
+                }
+                break;
+
+            case 3:
+                i++;
+                switch (command_number) {
+                    case 0:
+                        fprintf(outputFile, "%s %lg\n", JMP, cpu -> buffer.data[i]);
+                        break;
+                    case 1:
+                        fprintf(outputFile, "%s %lg\n", JA, cpu -> buffer.data[i]);
+                        break;
+                    case 2:
+                        fprintf(outputFile, "%s %lg\n", JNE, cpu -> buffer.data[i]);
+                        break;
+                    case 3:
+                        fprintf(outputFile, "%s %lg\n", JE, cpu -> buffer.data[i]);
+                        break;
                     default:
                         assert(WRONG_COMMAND);
                 }
@@ -227,7 +255,7 @@ void CPU_evaluate(struct CPU_t * cpu) {
     int reg = 0;
     double top = 0, top2 = 0, result = 0;
 
-    int jump_remain = 0;
+    int jump_remain = 0, current_line = 0;
 
     while (i < cpu -> buffer.currentPosition) {
         int current = (int) cpu -> buffer.data[i];
@@ -239,6 +267,9 @@ void CPU_evaluate(struct CPU_t * cpu) {
             switch (args_n) {
                 case 0:
                     switch (command_number) {
+                        case 0:
+                            i = cpu -> buffer.currentPosition;
+                            break;
                         case 1:
                             reg = current & 0b00001111;
                             CPU_pushRegister(cpu, reg);
@@ -266,6 +297,9 @@ void CPU_evaluate(struct CPU_t * cpu) {
                             break;
                         case 2:
                             result = sqrt(top);
+                            break;
+                        case 3:
+                            printf("%lg\n", top);
                             break;
                         default:
                             assert(WRONG_COMMAND);
@@ -327,10 +361,11 @@ void CPU_evaluate(struct CPU_t * cpu) {
                         default:
                             assert(WRONG_COMMAND);
                     }
-
+                    Stack_push(&cpu->stack, top2);
+                    Stack_push(&cpu->stack, top);
                     i++;
                     if (make_jump) {
-                        jump_remain = (int) cpu->buffer.data[i];
+                        jump_remain = (int) cpu -> buffer.data[i] - current_line - 1;
                     }
 
                 default:
@@ -338,14 +373,13 @@ void CPU_evaluate(struct CPU_t * cpu) {
 
             }
         } else {
-            if (args_n < 3) {
-                i += args_n;
-            } else {
-                i += 1;
+            if (args_n == 0 && command_number == 2 || args_n == 3) {
+                i++;
             }
             jump_remain--;
         }
         i++;
+        current_line++;
     }
 }
 
@@ -375,6 +409,10 @@ void CPU_assemble(struct Buffer_t *buffer) {
             Buffer_push(buffer, pop + registerCode(reg));
             continue;
         }
+        if (!strcmp(command, END)) {
+            Buffer_push(buffer, end);
+        }
+
         if (isJump(command, buffer)) {
             read = fscanf(input, "%lg", &value);
             Buffer_push(buffer, value);
@@ -427,7 +465,7 @@ int registerCode(char *reg) {
 
 }
 
-void CPU_pushRegister(struct CPU_t *cpu, int reg) {
+void CPU_popRegister(struct CPU_t * cpu, int reg) {
     if (reg == ax) {
         cpu -> ax = Stack_pop(&cpu -> stack);
     }
@@ -443,7 +481,7 @@ void CPU_pushRegister(struct CPU_t *cpu, int reg) {
     assert(WRONG_COMMAND);
 }
 
-void CPU_popRegister(struct CPU_t * cpu, int reg) {
+void CPU_pushRegister(struct CPU_t * cpu, int reg) {
     if (reg == ax) {
         Stack_push(&cpu -> stack, cpu -> ax);
     }
@@ -488,6 +526,10 @@ void interpret(struct Buffer_t *buffer, char *command) {
     }
     if (!strcmp(command, SQRT)) {
         Buffer_push(buffer, Sqrt);
+        return;
+    }
+    if (!strcmp(command, OUT)) {
+        Buffer_push(buffer, out);
         return;
     }
     assert(WRONG_COMMAND);

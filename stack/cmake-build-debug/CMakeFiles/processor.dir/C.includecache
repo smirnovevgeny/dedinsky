@@ -1,0 +1,30 @@
+#IncludeRegexLine: ^[ 	]*#[ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/Users/evgeny/Programming/ClionProjects/dedinsky/stack/processor.c
+string.h
+-
+stack.c
+/Users/evgeny/Programming/ClionProjects/dedinsky/stack/stack.c
+math.h
+-
+
+/Users/evgeny/Programming/ClionProjects/dedinsky/stack/stack.c
+stdlib.h
+-
+stdbool.h
+-
+assert.h
+-
+stdio.h
+-
+stack.h
+/Users/evgeny/Programming/ClionProjects/dedinsky/stack/stack.h
+
+/Users/evgeny/Programming/ClionProjects/dedinsky/stack/stack.h
+
