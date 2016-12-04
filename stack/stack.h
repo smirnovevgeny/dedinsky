@@ -11,7 +11,7 @@
 
 int POISON = -666;
 
-char * DUMP_PATH = "dump.txt";
+char * DUMP_PATH = "data/dump.txt";
 
 struct Stack_t {
     int count, size;
